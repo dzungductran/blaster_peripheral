@@ -1,0 +1,25 @@
+1. Add compatibility mode to bluetoothd, by edit the systemd configuration /etc/systemd/system/bluetooth.target.wants/bluetooth.service by adding --compat to bluetoothhd as:        
+        ExecStart=/usr/lib/bluez5/bluetooth/bluetoothd -d --compat
+
+2. Install obexd package
+   > vi /etc/opkg/base-feeds.conf
+
+   add these lines:
+      src all     http://iotdk.intel.com/repos/1.1/iotdk/all
+      src x86 http://iotdk.intel.com/repos/1.1/iotdk/x86
+      src i586    http://iotdk.intel.com/repos/1.1/iotdk/i586
+
+   > opkg update
+   > opkg list | grep bluez5
+   > opkg install bluez5-obex 
+   > opkg install bluez5-testtools
+
+3. You need to run an agent to handle pairing in the background. The one I run is part of the bluetooth testing package in bluez5-testtools. I added running this agent in the script obexd.sh in step 4
+
+By default, /usr/lib/bluez/test/simple-agent requests keyboard input for authentication. My system is headless, and I want it to always authenticate against the same key for each device. So I modified the RequestPinCode method to always return the same value, my PIN:
+Code:
+        def RequestPinCode(self, device):                    
+                print("RequestPinCode (%s)" % (device))      
+                return "1234"
+
+3. Run the script in obexd.sh or run it as part of system startup

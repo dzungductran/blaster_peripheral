@@ -1,0 +1,34 @@
+Setup Edison for serial protocol:
+Add compatibility mode to bluetoothd, by edit the systemd configuration /etc/systemd/system/bluetooth.target.wants/bluetooth.service by adding --compat to bluetoothhd as:        
+  1. ExecStart=/usr/lib/bluez5/bluetooth/bluetoothd -d --compat
+Turn on bluetooth. You can run this all on command lines or setup some type of systemd startup script
+  2. shell>  rfkill unblock bluetooth
+Turn on scanning.
+  3. shell> hciconfig hci0 piscan
+Turn off sspmode (Secure Simple Pairing)
+  4. shell> hciconfig hci0 sspmode 0
+Add serial port protocol
+  5. shell> sdptool add --channel=22 SP
+Run an agent to handle pairing in the background. The one I run is part of the bluetooth testing package as in bluez5-testtools_5.18-r0_core2.ipk.
+  6. shell> /usr/lib/bluez/test/simple-agent &
+
+
+By default, simple-agent requests keyboard input for authentication. My system is headless, and I want it to always authenticate against the same key for each device. So I modified the RequestPinCode method to always return the same value, my PIN:
+Code:
+        def RequestPinCode(self, device):                    
+                print("RequestPinCode (%s)" % (device))      
+                return "1234"
+Testing your serial protocol:
+On Edison, run rfcomm as:
+  1. shell> rfcomm listen /dev/rfcomm0 22
+rfcomm will block listening for a connection with a message likes:
+        >  Waiting for connection on channel 22        
+On Android, pair with the Edison using BT pairing from Android and specify "1234" as PIN
+On Android, I used the BlueTerm application (http://pymasde.es/blueterm/, also available freely on the google play store) though any similar application should work. Open up BlueTerm, go to options > Connect Device: select the paired adapter.
+Hopefully, the application was able to connect. You'll see additional verification in the terminal on Edison where you blocked listening with a message like:
+    > Waiting for connection on channel 22
+    > Connection from 22:22:22:22:22:22 to /dev/rfcomm0
+    > Press CTRL-C for hangup
+Anything you type into the BlueTerm app should be going to /dev/rfcomm0. You can see stuff show up as you type by opening up a new terminal on Edison and doing something like:
+    shell> cat /dev/rfcomm0
+
