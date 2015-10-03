@@ -51,3 +51,24 @@ struct pstat {
     long unsigned int cpu_total_time;
 };                                                   
 
+/*
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 74
+model name      : Genuine Intel(R) CPU   4000  @  500MHz
+stepping        : 8
+cpu MHz         : 500.000
+cache size      : 1024 KB
+cpu cores       : 2
+*/
+struct cpuInfo {
+    int cpu_cores;
+    float frequency;
+    int cpu_family;
+    int stepping;
+    int model;
+    char cache_size[32];
+    char model_name[128];
+    char vendor_id[32];
+} ;
+

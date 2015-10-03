@@ -4,7 +4,7 @@
 # .cxx or .cpp replaced by .o
 # Be *** SURE *** to put the .o files here rather than the source files
 
-BLASTER = blaster_server.o shell_cmd.o find_process.o cpu_usage.o
+BLASTER = blaster_server.o shell_cmd.o find_process.o cpu_usage.o cpu_info.o
 
 #------------ no need to change between these lines -------------------
 CC=gcc
