@@ -36,6 +36,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <malloc.h>  
+#include<pthread.h>
 
 #include <netinet/in.h>
 #include <net/if.h>
@@ -71,4 +72,15 @@ struct cpuInfo {
     char model_name[128];
     char vendor_id[32];
 } ;
+
+
+extern char *get_message();
+extern int get_lasterror( char *msg );
+extern int shellcmd(char *cmd, char *type);
+extern int filecopy(char *src, char *target);
+extern pid_t findCommand(char *cmd);
+extern int get_usage(const pid_t pid, struct pstat* result);
+extern void calc_cpu_usage_pct(const struct pstat* cur_usage,                                                                   
+                        const struct pstat* last_usage,                                                                  
+                        double* usage);
 

@@ -23,12 +23,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "common.h"
 
-extern char *get_message();
-extern int get_lasterror( char *msg );
-extern int shellcmd(char *cmd, char *type);
-extern int filecopy(char *src, char *target);
-extern pid_t findCommand(char *cmd);
-
 uint8_t channel = 22;
 
 #ifdef _DEBUG
@@ -93,11 +87,11 @@ void returnError(int client) {
 }
 
 // return unknown command error message
-void returnUnknown(int client, char *cmd) {
+void returnUnknown(int client, char *format, char *str) {
     char error[256] = { 0 };
 
     error[0] = SERIAL_CMD_ERROR;                             
-    sprintf(&error[1], "Can't find cmd %s", cmd);
+    sprintf(&error[1], format, str);
     int slen = strlen(&error[1]);
     int bytes_wrote = write(client, error, slen+1);              
     if (bytes_wrote <= 0 || bytes_wrote != slen+1) {       
@@ -105,6 +99,40 @@ void returnUnknown(int client, char *cmd) {
        fprintf(stderr, "Can't write to client\n");        
     }                                                      
 } 
+
+// argv that is needed to pass into returnCpuUsage function as part of
+// pthread_create function
+struct argvCpuInfo {
+    int client;
+    pid_t pid;
+}; 
+
+// Function to return cpu usage and other info about process
+void* returnCpuUsage(void *arg)                                                                                                
+{                                                                                                                        
+    struct pstat prev, curr;                                                                                             
+    double pct;                                                                                                          
+    struct argvCpuInfo *argv = (struct argvCpuInfo *)arg; 
+    
+    while( 1 )                                                                                                           
+    {                                                                                                                    
+        if( get_usage(argv->pid, &prev) == -1 ) {                                                                              
+            printf( "error\n" );                                                                                         
+        }                                                                                                                
+                                                                                                                         
+        sleep( 2 );                                                                                                      
+                                                                                                                         
+        if( get_usage(argv->pid, &curr) == -1 ) {                                                                              
+            printf( "error\n" );                                                                                         
+        }                                                                                                                
+                                                                                                                         
+        calc_cpu_usage_pct(&curr, &prev, &pct);                                                                          
+                                                                                                                         
+        printf("%%cpu: %.02f\n", pct);                                                                                   
+    }                                                                                                                    
+
+    free(argv);
+}                                                                                                                        
 
 int main(int argc, char **argv)
 {
@@ -176,7 +204,7 @@ int main(int argc, char **argv)
                             returnError(client);
                         }
                     } else {
-                       returnUnknown(client, &buf[1]);
+                       returnUnknown(client, "Can't find %s", &buf[1]);
 		    }
                 }
                 else if ( buf[0] == SERIAL_CMD_STOP ) {
@@ -188,7 +216,7 @@ int main(int argc, char **argv)
                             returnError(client);
                         }
                     } else {
-                       returnUnknown(client, &buf[1]);
+                       returnUnknown(client, "Can't find %s", &buf[1]);
                     }
                 }
                 else if ( buf[0] == SERIAL_CMD_STATUS )
@@ -197,9 +225,15 @@ int main(int argc, char **argv)
                     strip_argv(buf); 
                     pid_t pid = findCommand(buf);
                     if (pid != -1) {
-
+                        pthread_t tid;
+                        struct argvCpuInfo *arg = malloc(sizeof(struct argvCpuInfo));
+                        arg->client = client;
+                        arg->pid = pid;
+                        if (pthread_create(&tid, NULL, returnCpuUsage, arg) != 0) {
+                            returnUnknown(client, "Can't stat %", buf);
+                        }
                     } else {
-                       returnUnknown(client, &buf[1]);
+                        returnUnknown(client, "Can't stat %s", &buf[1]);
                     }
                 }
                 else if ( buf[0] == SERIAL_CMD_CLOSE )

@@ -9,7 +9,7 @@ BLASTER = blaster_server.o shell_cmd.o find_process.o cpu_usage.o cpu_info.o
 #------------ no need to change between these lines -------------------
 CC=gcc
 CFLAGS = -O0 -g3 -Wall -MMD -MP -D_DEBUG
-LDFLAGS=-l bluetooth 
+LDFLAGS=-l bluetooth  -lpthread
 
 .SUFFIXES: .c
 
