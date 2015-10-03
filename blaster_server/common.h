@@ -78,7 +78,7 @@ extern char *get_message();
 extern int get_lasterror( char *msg );
 extern int shellcmd(char *cmd, char *type);
 extern int filecopy(char *src, char *target);
-extern pid_t findCommand(char *cmd);
+extern pid_t findCommand(const char *cmd);
 extern int get_usage(const pid_t pid, struct pstat* result);
 extern void calc_cpu_usage_pct(const struct pstat* cur_usage,                                                                   
                         const struct pstat* last_usage,                                                                  
