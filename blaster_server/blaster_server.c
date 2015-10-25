@@ -87,10 +87,10 @@ void returnError(int client) {
 }
 
 // return unknown command error message
-void returnUnknown(int client, char *format, char *str) {
+void returnMessage(int client, int msgType,  char *format, char *str) {
     char error[256] = { 0 };
 
-    error[0] = SERIAL_CMD_ERROR;                             
+    error[0] = msgType;                             
     sprintf(&error[1], format, str);
     int slen = strlen(&error[1]);
     int bytes_wrote = write(client, error, slen+1);              
@@ -99,6 +99,10 @@ void returnUnknown(int client, char *format, char *str) {
        fprintf(stderr, "Can't write to client\n");        
     }                                                      
 } 
+
+void returnUnknown(int client, char *format, char *str) {
+    returnMessage(client, SERIAL_CMD_ERROR, format, str);
+}
 
 // argv that is needed to pass into returnCpuUsage function as part of
 // pthread_create function
@@ -181,6 +185,8 @@ int main(int argc, char **argv)
             printf("Waiting for data from %s\n", client_addr);
     	    memset(buf, 0, sizeof(buf));
     	    bytes_read = read(client, buf, sizeof(buf));
+            printf("read %d\n", bytes_read);                   
+
     	    if( bytes_read > 0 ) {
 #ifdef DEBUG
                 int i;
