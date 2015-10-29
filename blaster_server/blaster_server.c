@@ -31,6 +31,7 @@ uint8_t channel = 22;
 #define DEBUG 0
 #endif
 
+#define DEBUG 1
 // commands between Client and Server. Server is on Edison side and
 // client is on the phone side
 const unsigned char SERIAL_CMD_START   = 0x1;
@@ -75,7 +76,7 @@ void strip_argv(char *buffer) {
 
 // return last known error message
 void returnError(int client) {
-    char error[256] = { 0 };
+    char error[1024] = { 0 };
 
     error[0] = SERIAL_CMD_ERROR;                             
     int slen = get_lasterror(&error[1]);                         
@@ -196,7 +197,13 @@ int main(int argc, char **argv)
 #endif
                 if ( buf[0] == SERIAL_CMD_START )
                 {
-    		    status = shellcmd(&buf[1], "e");  // read error from stderr
+                    char type[2];
+                    type[0] = buf[1];
+                    type[1] = '\0';
+    		    status = shellcmd(&buf[2], type);  // read error from stderr
+#ifdef DEBUG
+                    printf("status = %d for command %s\n", status, &buf[2]);
+#endif
                     if (status !=0) {
                         returnError(client);
                     } 
@@ -250,14 +257,18 @@ int main(int argc, char **argv)
 		    // system log?
                     fprintf(stderr, "Unknown message %s\n", buf); 
                 }
+            } // if bytes_read > 0
+            else 
+            {
+                done = 1;
             }
                
-        }
+        } // while (!done)
 
         printf("Close connection to %s\n", client_addr);
     	// close connection
     	close(client);
-    }
+    } // while(1)
 
     close(sock);
     exit(0);

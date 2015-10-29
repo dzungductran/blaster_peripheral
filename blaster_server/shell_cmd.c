@@ -63,137 +63,55 @@ _donefilecopy:
    return status;
 }
 
-/*
- * Pointer to array allocated at run-time.
- */
-static pid_t    *childpid = NULL;
-
-/*
- * From our open_max(), {Prog openmax}.
- */
-static int      maxfd;
-
-FILE *mypopen(const char *cmdstring, const char *type)
-{
-    int     i;
-    int     pfd[2];
+// another exec
+int shellcmd(char *cmdstring, char *type) {
+    int pipefd[2];
+    pipe(pipefd);
+    int     stat;
     pid_t   pid;
-    FILE    *fp;
 
-    /* only allow "r" "e" or "w" */
-    if ((type[0] != 'r' && type[0] != 'w' && type[0] != 'e') || type[1] != 0) {
+    /* only allow "r" "e" or "o" */
+    if ((type[0] != 'r' && type[0] != 'o' && type[0] != 'e') || type[1] != 0) {
         errno = EINVAL;     /* required by POSIX */
-        return(NULL);
+        return(1);
     }
 
-    if (childpid == NULL) {     /* first time through */
-        /* allocate zeroed out array for child pids */
-        maxfd = 256;
-        if ((childpid = calloc(maxfd, sizeof(pid_t))) == NULL)
-            return(NULL);
-    }
+    if ((pid = fork()) == 0)
+    {
+        close(pipefd[0]);    // close reading end in the child
 
-    if (pipe(pfd) < 0)
-        return(NULL);   /* errno set by pipe() */
-
-    if ((pid = fork()) < 0) {
-        return(NULL);   /* errno set by fork() */
-    } else if (pid == 0) {                          /* child */
-        if (*type == 'e') {
-            close(pfd[0]);
-            if (pfd[1] != STDERR_FILENO) {
-                dup2(pfd[1], STDERR_FILENO);
-                close(pfd[1]);
-            }
-        } else if (*type == 'r') {
-            close(pfd[0]);
-            if (pfd[1] != STDOUT_FILENO) {
-                dup2(pfd[1], STDOUT_FILENO);
-                close(pfd[1]);
-            }
+        if (*type == 'r') {
+           dup2(pipefd[1], 1);  // send stdout to the pipe
+           dup2(pipefd[1], 2);  // send stderr to the pipe
+        } else if (*type == 'o') {
+           dup2(pipefd[1], 1);  // send stdout to the pipe
         } else {
-            close(pfd[1]);
-            if (pfd[0] != STDIN_FILENO) {
-                dup2(pfd[0], STDIN_FILENO);
-                close(pfd[0]);
-            }
+           dup2(pipefd[1], 2);  // send stderr to the pipe
         }
 
-        /* close all descriptors in childpid[] */
-        for (i = 0; i < maxfd; i++)
-            if (childpid[i] > 0)
-                close(i);
+        close(pipefd[1]);    // this descriptor is no longer needed
 
         execl("/bin/sh", "sh", "-c", cmdstring, (char *)0);
         _exit(127);
     }
+    else
+    {
+        // parent
+        close(pipefd[1]);  // close the write end of the pipe in the parent
 
-    /* parent continues... */
-    if (*type == 'e') {
-        close(pfd[1]);
-        if ((fp = fdopen(pfd[0], "r")) == NULL)
-            return(NULL);
-    } else if (*type == 'r') {
-        close(pfd[1]);
-        if ((fp = fdopen(pfd[0], type)) == NULL)
-            return(NULL);
-
-    } else {
-        close(pfd[0]);
-        if ((fp = fdopen(pfd[1], type)) == NULL)
-            return(NULL);
+    	memset(buffer, 0, MAXBUF);
+        while (read(pipefd[0], buffer, sizeof(buffer)) != 0)
+    	{
+           printf(buffer);    
+    	}
+        close(pipefd[0]);
     }
-
-    childpid[fileno(fp)] = pid; /* remember child pid for this fd */
-    return(fp);
-}
-
-int mypclose(FILE *fp)
-{
-    int     fd, stat;
-    pid_t   pid;
-
-    if (childpid == NULL) {
-        errno = EINVAL;
-        return(-1);     /* popen() has never been called */
-    }
-
-    fd = fileno(fp);
-    if ((pid = childpid[fd]) == 0) {
-        errno = EINVAL;
-        return(-1);     /* fp wasn't opened by popen() */
-    }
-
-    childpid[fd] = 0;
-    if (fclose(fp) == EOF)
-        return(-1);
 
     while (waitpid(pid, &stat, 0) < 0)
         if (errno != EINTR)
             return(-1); /* error other than EINTR from waitpid() */
 
-    return(stat);   /* return child's termination status */
-}
-
-// execute command
-int shellcmd(char *cmd, char *type){
-    FILE *fp;
-    char line[256];
-    fp = mypopen(cmd, type);
-    if (fp==NULL) return -1;
-
-    memset(buffer, 0, MAXBUF);
-    int pos = 0;
-    /* Read the output a line at a time - output it. */
-    while (fgets(line, sizeof(line)-1, fp) != NULL) {
-        int len = strlen(line);
-        if ((pos + len) > MAXBUF-1)
-            break;      // too much for buffer
-        strcpy(&buffer[pos], line);
-        pos += len;
-    }
-
-    return WEXITSTATUS(mypclose(fp));
+    return WEXITSTATUS(stat);   /* return child's termination status */
 }
 
 // copy error and return
