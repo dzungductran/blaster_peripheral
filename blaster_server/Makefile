@@ -4,12 +4,13 @@
 # .cxx or .cpp replaced by .o
 # Be *** SURE *** to put the .o files here rather than the source files
 
+CJSON = cJSON/cJSON.o
 BLASTER = blaster_server.o shell_cmd.o find_process.o cpu_usage.o cpu_info.o
 
 #------------ no need to change between these lines -------------------
 CC=gcc
 CFLAGS = -O0 -g3 -Wall -MMD -MP -D_DEBUG
-LDFLAGS=-l bluetooth  -lpthread
+LDFLAGS=-l bluetooth  -lpthread -lm
 
 .SUFFIXES: .c
 
@@ -26,12 +27,12 @@ LDFLAGS=-l bluetooth  -lpthread
 
 all: blaster
 
-blaster: $(BLASTER)
+blaster: $(BLASTER) $(CJSON)
 	@echo "########################################################################################"
 	@echo "Building blaster_server..."
-	$(CC) $(BLASTER) -o blaster_server $(LDFLAGS)
+	$(CC) $(BLASTER) $(CJSON) -o blaster_server $(LDFLAGS)
 
 clean:
-	rm -f *.o *.d blaster_server
+	rm -f *.o *.d blaster_server cJSON/*.o cJSON/*.d
 
 #------------ dependencies --------------------------------------------
