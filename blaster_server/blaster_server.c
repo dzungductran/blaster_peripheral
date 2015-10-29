@@ -22,6 +22,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #include "common.h"
+#include "cJSON/cJSON.h"
 
 uint8_t channel = 22;
 
@@ -34,30 +35,21 @@ uint8_t channel = 22;
 #define DEBUG 1
 // commands between Client and Server. Server is on Edison side and
 // client is on the phone side
-const unsigned char SERIAL_CMD_START   = 0x1;
-const unsigned char SERIAL_CMD_STATUS  = 0x2;
-const unsigned char SERIAL_CMD_ERROR   = 0x3;
-const unsigned char SERIAL_CMD_KILL    = 0x4;
-const unsigned char SERIAL_CMD_STOP    = 0x5;
-const unsigned char SERIAL_CMD_CLOSE   = 0xF;
+#define SERIAL_CMD_START   0x1
+#define SERIAL_CMD_STATUS  0x2
+#define SERIAL_CMD_ERROR   0x3
+#define SERIAL_CMD_KILL    0x4
+#define SERIAL_CMD_STOP    0x5
+#define SERIAL_CMD_CLOSE   0xF
+
+const char *KEY_COMMAND_TYPE   = "command_type";
+const char *KEY_COMMAND        = "command";
+const char *KEY_CAPTURE_OUTPUT = "capture_output";
 
 /* Protocol between client and server
  *     byte 1 = command 
  *     byte 2-n = command line except for close which is empy
  */
-
-// convert int to 4 bytes
-void convert_int4bytes(int n, char *bytes) {
-    bytes[0] = (n >> 24) & 0xFF;
-    bytes[1] = (n >> 16) & 0xFF;
-    bytes[2] = (n >> 8) & 0xFF;
-    bytes[3] = n & 0xFF;
-}
-
-int convert_4bytesint(char *bytes) {
-    int x = (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
-    return x;
-}
 
 // strip out all arguments                                        
 void strip_argv(char *buffer) {                                   
@@ -146,6 +138,8 @@ int main(int argc, char **argv)
     char client_addr[64];
     int sock, client, bytes_read, status;
     socklen_t opt = sizeof(rem_addr);
+    pid_t pid;
+    cJSON *json;
 
     // allocate socket
     sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
@@ -186,76 +180,88 @@ int main(int argc, char **argv)
             printf("Waiting for data from %s\n", client_addr);
     	    memset(buf, 0, sizeof(buf));
     	    bytes_read = read(client, buf, sizeof(buf));
-            printf("read %d\n", bytes_read);                   
 
     	    if( bytes_read > 0 ) {
 #ifdef DEBUG
-                int i;
-                for (i=0; i<bytes_read; i++)
-                    printf("received [%x]", buf[i]);
-                printf("\n");
+                printf("len=%d buf=%s\n", bytes_read, buf);
 #endif
-                if ( buf[0] == SERIAL_CMD_START )
+                json = cJSON_Parse(buf);
+                int cmd = cJSON_GetObjectItem(json, KEY_COMMAND_TYPE)->valueint;
+                switch (cmd) 
                 {
-                    char type[2];
-                    type[0] = buf[1];
-                    type[1] = '\0';
-    		    status = shellcmd(&buf[2], type);  // read error from stderr
+                    case SERIAL_CMD_START:
+                    { 
+                        char *oType = cJSON_GetObjectItem(json, KEY_CAPTURE_OUTPUT)->valuestring;
+                        char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
+    		        status = shellcmd(cmdStr, oType);  // read error from stderr
 #ifdef DEBUG
-                    printf("status = %d for command %s\n", status, &buf[2]);
+                        printf("status = %d for command %s type %s\n", status, cmdStr, oType);
 #endif
-                    if (status !=0) {
-                        returnError(client);
+                        if (status !=0) {
+                            returnError(client);
+                        }
+                        break;
                     } 
-                } 
-                else if ( buf[0] == SERIAL_CMD_KILL ) {
-                    strip_argv(buf); 
-                    pid_t pid = findCommand(buf);
-                    if (pid != -1) {
-                        status = kill(pid, SIGKILL);
-                        if (status == -1) {
-                            returnError(client);
-                        }
-                    } else {
-                       returnUnknown(client, "Can't find %s", &buf[1]);
-		    }
-                }
-                else if ( buf[0] == SERIAL_CMD_STOP ) {
-                    strip_argv(buf); 
-                    pid_t pid = findCommand(buf);
-                    if (pid != -1) {
-                        status = kill(pid, SIGSTOP);
-                        if (status == -1) {
-                            returnError(client);
-                        }
-                    } else {
-                       returnUnknown(client, "Can't find %s", &buf[1]);
+                    case SERIAL_CMD_KILL:
+                    {
+                        char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
+			strcpy(buf, cmdStr);
+                    	strip_argv(buf); 
+                    	pid = findCommand(buf);
+                    	if (pid != -1) {
+                            status = kill(pid, SIGKILL);
+                            if (status == -1) {
+                                returnError(client);
+                            }
+                        } else {
+                            returnUnknown(client, "Can't find %s", cmdStr);
+             		}
+                        break;
                     }
-                }
-                else if ( buf[0] == SERIAL_CMD_STATUS )
-                {
-                    // get status from /proc/stat
-                    strip_argv(buf); 
-                    pid_t pid = findCommand(buf);
-                    if (pid != -1) {
-                        pthread_t tid;
-                        struct argvCpuInfo *arg = malloc(sizeof(struct argvCpuInfo));
-                        arg->client = client;
-                        arg->pid = pid;
-                        if (pthread_create(&tid, NULL, returnCpuUsage, arg) != 0) {
-                            returnUnknown(client, "Can't stat %", buf);
+                    case SERIAL_CMD_STOP:
+                    {
+                        char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
+			strcpy(buf, cmdStr);
+                        strip_argv(buf); 
+                        pid = findCommand(buf);
+                        if (pid != -1) {
+                            status = kill(pid, SIGSTOP);
+                            if (status == -1) {
+                                returnError(client);
+                            }
+                        } else {
+                            returnUnknown(client, "Can't find %s", cmdStr);
                         }
-                    } else {
-                        returnUnknown(client, "Can't stat %s", &buf[1]);
+                        break;
                     }
-                }
-                else if ( buf[0] == SERIAL_CMD_CLOSE )
-                {
-                    done = 1;
-                }
-                else {
-		    // system log?
-                    fprintf(stderr, "Unknown message %s\n", buf); 
+                    case SERIAL_CMD_STATUS:
+                    {
+                        // get status from /proc/stat
+                        char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
+			strcpy(buf, cmdStr);
+                        strip_argv(buf); 
+                        pid = findCommand(buf);
+                        if (pid != -1) {
+                            pthread_t tid;
+                            struct argvCpuInfo *arg = malloc(sizeof(struct argvCpuInfo));
+                            arg->client = client;
+                            arg->pid = pid;
+                            if (pthread_create(&tid, NULL, returnCpuUsage, arg) != 0) {
+                                returnUnknown(client, "Can't stat %", cmdStr);
+                            }
+                        } else {
+                            returnUnknown(client, "Can't stat %s", cmdStr);
+                        }
+                        break;
+                    }
+                    case SERIAL_CMD_CLOSE:
+                    {
+                        done = 1;
+                        break;
+                    }
+                    default:
+                        returnUnknown(client, "Don't understand command %s", cJSON_Print(json,0));
+                        
                 }
             } // if bytes_read > 0
             else 
