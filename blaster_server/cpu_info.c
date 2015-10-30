@@ -26,9 +26,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // Get CPU Info
 void getCpuInfo(struct cpuInfo *cpuinfo)
 {
-    char buf[512], *ptr;
-    int found = 0;
+    char buf[BUFSIZE], *ptr;
+    int len, found = 0;
 
+    memset(buf, 0, BUFSIZE);
     /* try to open the cpuinfo file */
     FILE* fp = fopen("/proc/cpuinfo", "r");
 
@@ -37,10 +38,15 @@ void getCpuInfo(struct cpuInfo *cpuinfo)
             if (strncmp(buf, "vendor_id", 9) == 0) {
                ptr = strstr(buf, ": ");
                if (ptr != '\0') {
-                  strncpy(cpuinfo->vendor_id, ptr+2, strlen(ptr)-3);
+                  strcpy(cpuinfo->vendor_id, ptr+2);
+                  len = strlen(cpuinfo->vendor_id);
+                  if (cpuinfo->vendor_id[len-1] == '\n') {
+                     cpuinfo->vendor_id[len-1] = '\0';
+                  }
                }
                printf("%s\n", cpuinfo->vendor_id);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
             if (strncmp(buf, "cpu family", 10) == 0) {
@@ -50,15 +56,21 @@ void getCpuInfo(struct cpuInfo *cpuinfo)
                }
                printf("%d\n", cpuinfo->cpu_family);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
             if (strncmp(buf, "model name", 10) == 0) {
                ptr = strstr(buf, ": ");
                if (ptr != '\0') {
-                  strncpy(cpuinfo->model_name, ptr+2, strlen(ptr)-3);
+                  strcpy(cpuinfo->model_name, ptr+2);
+                  len = strlen(cpuinfo->model_name);
+                  if (cpuinfo->model_name[len-1] == '\n') {
+                     cpuinfo->model_name[len-1] = '\0';
+                  }
                }
                printf("%s\n", cpuinfo->model_name);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
             if (strncmp(buf, "model", 5) == 0) {
@@ -68,6 +80,7 @@ void getCpuInfo(struct cpuInfo *cpuinfo)
                }
                printf("%d\n", cpuinfo->model);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
             if (strncmp(buf, "cpu cores", 9) == 0) {
@@ -77,6 +90,7 @@ void getCpuInfo(struct cpuInfo *cpuinfo)
                }
                printf("%d\n", cpuinfo->cpu_cores);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
             if (strncmp(buf, "stepping", 8) == 0) {
@@ -86,6 +100,7 @@ void getCpuInfo(struct cpuInfo *cpuinfo)
                }
                printf("%d\n", cpuinfo->stepping);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
             if (strncmp(buf, "cpu MHz", 7) == 0) {
@@ -95,15 +110,21 @@ void getCpuInfo(struct cpuInfo *cpuinfo)
                }
                printf("%f\n", cpuinfo->frequency);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
             if (strncmp(buf, "cache size", 10) == 0) {
                ptr = strstr(buf, ": ");
                if (ptr != '\0') {
-                  strncpy(cpuinfo->cache_size, ptr+2, strlen(ptr)-3);
+                  strcpy(cpuinfo->cache_size, ptr+2);
+                  len = strlen(cpuinfo->cache_size);
+                  if (cpuinfo->cache_size[len-1] == '\n') {
+                     cpuinfo->cache_size[len-1] = '\0';
+                  }
                }
                printf("%s\n", cpuinfo->cache_size);
                found++;
+               memset(buf, 0, BUFSIZE);
                continue;
             }
         }

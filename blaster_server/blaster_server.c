@@ -36,12 +36,13 @@ uint8_t channel = 22;
 
 // commands between Client and Server. Server is on Edison side and
 // client is on the phone side
-#define SERIAL_CMD_START   0x1
-#define SERIAL_CMD_STATUS  0x2
-#define SERIAL_CMD_ERROR   0x3
-#define SERIAL_CMD_KILL    0x4
-#define SERIAL_CMD_STOP    0x5
-#define SERIAL_CMD_CLOSE   0xF
+#define SERIAL_CMD_START       1
+#define SERIAL_CMD_STATUS      2
+#define SERIAL_CMD_ERROR       3
+#define SERIAL_CMD_KILL        4 
+#define SERIAL_CMD_STOP        5
+#define SERIAL_CMD_CPU_INFO    6
+#define SERIAL_CMD_CLOSE       0xFF 
 
 const char *KEY_COMMAND_TYPE   = "command_type";
 const char *KEY_COMMAND        = "command";
@@ -49,6 +50,14 @@ const char *KEY_CAPTURE_OUTPUT = "capture_output";
 const char *KEY_IDENTIFIER     = "identifier";
 const char *KEY_PERCENT        = "percent";
 const char *KEY_TOAST          = "toast";
+const char *KEY_FREQUENCY      = "frequency";
+const char *KEY_CPU_CORES      = "cpu_cores";
+const char *KEY_CPU_FAMILY     = "cpu_family";
+const char *KEY_STEPPING       = "stepping";
+const char *KEY_MODEL          = "model";
+const char *KEY_CACHE_SIZE     = "cache_size";
+const char *KEY_MODEL_NAME     = "model_name";
+const char *KEY_VENDOR_ID      = "vendor_id";
 
 /* Protocol between client and server
  *     byte 1 = command 
@@ -70,10 +79,36 @@ void strip_argv(char *buffer) {
     }                                                             
 } 
 
+void returnCpuInfo(int client) {
+    struct cpuInfo cpuinfo;
+    getCpuInfo(&cpuinfo); 
+
+    // build cpu info data
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, KEY_COMMAND_TYPE, SERIAL_CMD_CPU_INFO);
+    cJSON_AddNumberToObject(json, KEY_FREQUENCY, cpuinfo.frequency);
+    cJSON_AddNumberToObject(json, KEY_CPU_CORES, cpuinfo.cpu_cores);
+    cJSON_AddNumberToObject(json, KEY_CPU_FAMILY, cpuinfo.cpu_family);
+    cJSON_AddNumberToObject(json, KEY_STEPPING, cpuinfo.stepping);
+    cJSON_AddNumberToObject(json, KEY_MODEL, cpuinfo.model);
+    cJSON_AddStringToObject(json, KEY_CACHE_SIZE, cpuinfo.cache_size);
+    cJSON_AddStringToObject(json, KEY_MODEL_NAME, cpuinfo.model_name);
+    cJSON_AddStringToObject(json, KEY_VENDOR_ID, cpuinfo.vendor_id);
+        
+    char *out = cJSON_Print(json, 0);
+    int slen = strlen(out);
+    int bytes_wrote = write(client, out, slen);              
+    if (bytes_wrote <= 0 || bytes_wrote != slen) {       
+        // Use system log?                                 
+        fprintf(stderr, "Can't write to client\n");        
+    }                                                      
+    free(out);
+    cJSON_Delete(json);
+}
+
 // return unknown command error message
 void returnMessage(int client, int msgType,  char *format, char *str) {
     char error[256] = { 0 };
-
     sprintf(error, format, str);
 
     // build status data
@@ -254,7 +289,7 @@ int main(int argc, char **argv)
                         }
                         break;
                     }
-                    case SERIAL_CMD_STATUS:
+                    case SERIAL_CMD_STATUS: // get status for a command
                     {
                         // get status from /proc/stat
                         char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
@@ -275,6 +310,12 @@ int main(int argc, char **argv)
                             returnUnknown(client, "Can't stat %s", cmdStr);
                         }
                         break;
+                    }
+                    case SERIAL_CMD_CPU_INFO:
+                    {
+                        returnCpuInfo(client);
+                        break;
+
                     }
                     case SERIAL_CMD_CLOSE:
                     {

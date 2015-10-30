@@ -77,6 +77,7 @@ struct cpuInfo {
 
 
 extern char *get_message();
+extern void getCpuInfo(struct cpuInfo *cpuinfo);
 extern void get_lasterror( char *msg );
 extern int shellcmd(char *cmd, char *type);
 extern int filecopy(char *src, char *target);
