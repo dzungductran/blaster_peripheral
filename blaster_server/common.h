@@ -42,6 +42,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <net/if.h>
 #include <arpa/inet.h>
 
+#define BUFSIZE 256
+
 struct pstat {
     long unsigned int utime_ticks;
     long int cutime_ticks;
@@ -75,7 +77,7 @@ struct cpuInfo {
 
 
 extern char *get_message();
-extern int get_lasterror( char *msg );
+extern void get_lasterror( char *msg );
 extern int shellcmd(char *cmd, char *type);
 extern int filecopy(char *src, char *target);
 extern pid_t findCommand(const char *cmd);

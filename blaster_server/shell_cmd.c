@@ -23,8 +23,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "common.h"
 
-#define MAXBUF 	1024
-static char buffer[MAXBUF];
+static char buffer[BUFSIZE];
 
 int filecopy(char *source_file, char *target_file)
 {
@@ -99,11 +98,14 @@ int shellcmd(char *cmdstring, char *type) {
         // parent
         close(pipefd[1]);  // close the write end of the pipe in the parent
 
-    	memset(buffer, 0, MAXBUF);
-        while (read(pipefd[0], buffer, sizeof(buffer)) != 0)
-    	{
-           printf(buffer);    
-    	}
+	// always make sure last char is '\0', so read one less
+    	memset(buffer, 0, BUFSIZE);
+        int len = read(pipefd[0], buffer, sizeof(buffer)-1);
+        if (len < 0) {
+            fprintf(stderr, "Error reading from shell command %s %s\n", cmdstring, type);
+        }
+        printf(buffer);    
+
         close(pipefd[0]);
     }
 
@@ -115,10 +117,9 @@ int shellcmd(char *cmdstring, char *type) {
 }
 
 // copy error and return
-int get_lasterror(char *error) {
+void get_lasterror(char *error) {
     int len = strlen(buffer);
     memcpy(error, buffer, len);
-    return len;
 }
 
 // return last error buffer

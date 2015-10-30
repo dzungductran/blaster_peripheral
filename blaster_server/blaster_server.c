@@ -33,6 +33,7 @@ uint8_t channel = 22;
 #endif
 
 #define DEBUG 1
+
 // commands between Client and Server. Server is on Edison side and
 // client is on the phone side
 #define SERIAL_CMD_START   0x1
@@ -45,6 +46,9 @@ uint8_t channel = 22;
 const char *KEY_COMMAND_TYPE   = "command_type";
 const char *KEY_COMMAND        = "command";
 const char *KEY_CAPTURE_OUTPUT = "capture_output";
+const char *KEY_IDENTIFIER     = "identifier";
+const char *KEY_PERCENT        = "percent";
+const char *KEY_TOAST          = "toast";
 
 /* Protocol between client and server
  *     byte 1 = command 
@@ -66,32 +70,34 @@ void strip_argv(char *buffer) {
     }                                                             
 } 
 
-// return last known error message
-void returnError(int client) {
-    char error[1024] = { 0 };
-
-    error[0] = SERIAL_CMD_ERROR;                             
-    int slen = get_lasterror(&error[1]);                         
-    int bytes_wrote = write(client, error, slen+1);              
-    if (bytes_wrote <= 0 || bytes_wrote != slen+1) {       
-       // Use system log?                                 
-       fprintf(stderr, "Can't write to client\n");        
-    }                                                      
-}
-
 // return unknown command error message
 void returnMessage(int client, int msgType,  char *format, char *str) {
     char error[256] = { 0 };
 
-    error[0] = msgType;                             
-    sprintf(&error[1], format, str);
-    int slen = strlen(&error[1]);
-    int bytes_wrote = write(client, error, slen+1);              
-    if (bytes_wrote <= 0 || bytes_wrote != slen+1) {       
-       // Use system log?                                 
-       fprintf(stderr, "Can't write to client\n");        
+    sprintf(error, format, str);
+
+    // build status data
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, KEY_COMMAND_TYPE, msgType);
+    cJSON_AddStringToObject(json, KEY_TOAST, error);
+        
+    char *out = cJSON_Print(json, 0);
+    int slen = strlen(out);
+    int bytes_wrote = write(client, out, slen);              
+    if (bytes_wrote <= 0 || bytes_wrote != slen) {       
+        // Use system log?                                 
+        fprintf(stderr, "Can't write to client\n");        
     }                                                      
+    free(out);
+    cJSON_Delete(json);
 } 
+
+// return last known error message
+void returnError(int client) {
+    char error[BUFSIZE] = { 0 };
+    get_lasterror(error);                         
+    returnMessage(client, SERIAL_CMD_ERROR, "%s", error);
+}
 
 void returnUnknown(int client, char *format, char *str) {
     returnMessage(client, SERIAL_CMD_ERROR, format, str);
@@ -101,6 +107,7 @@ void returnUnknown(int client, char *format, char *str) {
 // pthread_create function
 struct argvCpuInfo {
     int client;
+    int identifier;
     pid_t pid;
 }; 
 
@@ -124,7 +131,20 @@ void* returnCpuUsage(void *arg)
         }                                                                                                                
                                                                                                                          
         calc_cpu_usage_pct(&curr, &prev, &pct);                                                                          
-                                                                                                                         
+       
+        // build status data
+        cJSON *json = cJSON_CreateObject();
+        cJSON_AddNumberToObject(json, KEY_COMMAND_TYPE, SERIAL_CMD_STATUS);
+        cJSON_AddNumberToObject(json, KEY_IDENTIFIER, argv->identifier);
+        cJSON_AddNumberToObject(json, KEY_PERCENT, pct);
+        
+        int slen = strlen(json->string);
+        int bytes_wrote = write(argv->client, json->string, slen);              
+        if (bytes_wrote <= 0 || bytes_wrote != slen) {       
+           // Use system log?                                 
+           fprintf(stderr, "Can't write to client\n");        
+        }                                                      
+        cJSON_Delete(json);
         printf("%%cpu: %.02f\n", pct);                                                                                   
     }                                                                                                                    
 
@@ -238,6 +258,7 @@ int main(int argc, char **argv)
                     {
                         // get status from /proc/stat
                         char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
+                        int id = cJSON_GetObjectItem(json, KEY_IDENTIFIER)->valueint;
 			strcpy(buf, cmdStr);
                         strip_argv(buf); 
                         pid = findCommand(buf);
@@ -246,6 +267,7 @@ int main(int argc, char **argv)
                             struct argvCpuInfo *arg = malloc(sizeof(struct argvCpuInfo));
                             arg->client = client;
                             arg->pid = pid;
+                            arg->identifier = id;
                             if (pthread_create(&tid, NULL, returnCpuUsage, arg) != 0) {
                                 returnUnknown(client, "Can't stat %", cmdStr);
                             }
