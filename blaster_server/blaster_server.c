@@ -152,8 +152,10 @@ void* returnCpuUsage(void *arg)
     struct pstat prev, curr;                                                                                             
     double pct;                                                                                                          
     struct argvCpuInfo *argv = (struct argvCpuInfo *)arg; 
+    int cnt = 0;
     
-    while( 1 )                                                                                                           
+    // could loop if needed by change cnt < n
+    while( cnt < 1 )
     {                                                                                                                    
         if( get_usage(argv->pid, &prev) == -1 ) {                                                                              
             printf( "error\n" );                                                                                         
@@ -180,6 +182,8 @@ void* returnCpuUsage(void *arg)
            fprintf(stderr, "Can't write to client\n");        
         }                                                      
         cJSON_Delete(json);
+
+        cnt++;
         printf("%%cpu: %.02f\n", pct);                                                                                   
     }                                                                                                                    
 
