@@ -128,7 +128,7 @@ void returnMessage(int client, int msgType,  char *format, char *str) {
 } 
 
 // return last known error message
-void returnError(int client) {
+void returnOutput(int client) {
     char error[BUFSIZE] = { 0 };
     get_lasterror(error);                         
     returnMessage(client, SERIAL_CMD_ERROR, "%s", error);
@@ -256,9 +256,10 @@ int main(int argc, char **argv)
 #ifdef DEBUG
                         printf("status = %d for command %s type %s\n", status, cmdStr, oType);
 #endif
-                        if (status !=0) {
-                            returnError(client);
+                        if (status != 0 || *oType == 'r' || *oType == 'o') {
+                            returnOutput(client);
                         }
+
                         break;
                     } 
                     case SERIAL_CMD_KILL:
@@ -270,7 +271,7 @@ int main(int argc, char **argv)
                     	if (pid != -1) {
                             status = kill(pid, SIGKILL);
                             if (status == -1) {
-                                returnError(client);
+                                returnOutput(client);
                             }
                         } else {
                             returnUnknown(client, "Can't find %s", cmdStr);
@@ -286,7 +287,7 @@ int main(int argc, char **argv)
                         if (pid != -1) {
                             status = kill(pid, SIGSTOP);
                             if (status == -1) {
-                                returnError(client);
+                                returnOutput(client);
                             }
                         } else {
                             returnUnknown(client, "Can't find %s", cmdStr);
