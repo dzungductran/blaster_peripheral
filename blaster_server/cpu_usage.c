@@ -23,6 +23,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "common.h"
 
+/* Read process stat from
+ * http://man7.org/linux/man-pages/man5/proc.5.html
+ */
 int get_usage(const pid_t pid, struct pstat* result) {
 
     int i;
@@ -51,9 +54,9 @@ int get_usage(const pid_t pid, struct pstat* result) {
     //read values from /proc/pid/stat
     bzero(result, sizeof(struct pstat));
     long int rss;
-    if (fscanf(fpstat, "%*d %*s %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu"
+    if (fscanf(fpstat, "%*d %*s %c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu"
                 "%lu %ld %ld %*d %*d %*d %*d %*u %lu %ld",
-                &result->utime_ticks, &result->stime_ticks,
+                &result->state, &result->utime_ticks, &result->stime_ticks,
                 &result->cutime_ticks, &result->cstime_ticks, &result->vsize,
                 &rss) == EOF) {
         fclose(fpstat);
@@ -78,7 +81,9 @@ int get_usage(const pid_t pid, struct pstat* result) {
     for(i=0; i < 4;i++)
         result->cpu_total_time += cpu_time[i];
 
+#ifdef DEBUG
     printf( "usage: cpu %lu, utime %lu, stime %lu\n", result->cpu_total_time, result->utime_ticks, result->stime_ticks );
+#endif
 
     return 0;
 }
@@ -87,7 +92,9 @@ void calc_cpu_usage_pct(const struct pstat* cur_usage,
                         const struct pstat* last_usage,
                         double* usage)
 {
+#ifdef DEBUG
     printf( "delta: cpu %lu, utime %lu, stime %lu\n",
+#endif
         cur_usage->cpu_total_time - last_usage->cpu_total_time,
         cur_usage->utime_ticks - last_usage->utime_ticks,
         cur_usage->stime_ticks - last_usage->stime_ticks );

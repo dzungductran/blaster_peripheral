@@ -45,6 +45,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define BUFSIZE 256
 
 struct pstat {
+    char state;
     long unsigned int utime_ticks;
     long int cutime_ticks;
     long unsigned int stime_ticks;
