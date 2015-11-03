@@ -94,10 +94,10 @@ void calc_cpu_usage_pct(const struct pstat* cur_usage,
 {
 #ifdef DEBUG
     printf( "delta: cpu %lu, utime %lu, stime %lu\n",
-#endif
         cur_usage->cpu_total_time - last_usage->cpu_total_time,
         cur_usage->utime_ticks - last_usage->utime_ticks,
         cur_usage->stime_ticks - last_usage->stime_ticks );
+#endif
 
     const long unsigned int cpu_diff = cur_usage->cpu_total_time - last_usage->cpu_total_time;
     const long unsigned int pid_diff =

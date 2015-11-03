@@ -58,6 +58,7 @@ const char *KEY_MODEL          = "model";
 const char *KEY_CACHE_SIZE     = "cache_size";
 const char *KEY_MODEL_NAME     = "model_name";
 const char *KEY_VENDOR_ID      = "vendor_id";
+const char *KEY_PROCESS_STATE  = "process_state";
 
 /* Protocol between client and server
  *     byte 1 = command 
@@ -147,48 +148,48 @@ struct argvCpuInfo {
 }; 
 
 // Function to return cpu usage and other info about process
-void* returnCpuUsage(void *arg)                                                                                                
-{                                                                                                                        
-    struct pstat prev, curr;                                                                                             
-    double pct;                                                                                                          
-    struct argvCpuInfo *argv = (struct argvCpuInfo *)arg; 
+void* returnCpuUsage(void *arg)
+{
+    struct pstat prev, curr;
+    double pct = 0;
+    char state[2] = {'X', '\0'};
+    struct argvCpuInfo *argv = (struct argvCpuInfo *)arg;
     int cnt = 0;
-    
+
     // could loop if needed by change cnt < n
     while( cnt < 1 )
-    {                                                                                                                    
-        if( get_usage(argv->pid, &prev) == -1 ) {                                                                              
-            printf( "error\n" );                                                                                         
-        }                                                                                                                
-                                                                                                                         
-        sleep( 2 );                                                                                                      
-                                                                                                                         
-        if( get_usage(argv->pid, &curr) == -1 ) {                                                                              
-            printf( "error\n" );                                                                                         
-        }                                                                                                                
-                                                                                                                         
-        calc_cpu_usage_pct(&curr, &prev, &pct);                                                                          
-       
+    {
+        if( get_usage(argv->pid, &prev) != -1 ) {
+            sleep( 2 );
+
+            if ( get_usage(argv->pid, &curr) != -1 ) {
+                calc_cpu_usage_pct(&curr, &prev, &pct);
+                state[0] = curr.state;
+            }
+        }
+
         // build status data
         cJSON *json = cJSON_CreateObject();
         cJSON_AddNumberToObject(json, KEY_COMMAND_TYPE, SERIAL_CMD_STATUS);
         cJSON_AddNumberToObject(json, KEY_IDENTIFIER, argv->identifier);
+        cJSON_AddStringToObject(json, KEY_PROCESS_STATE, state);
         cJSON_AddNumberToObject(json, KEY_PERCENT, pct);
-        
+
         int slen = strlen(json->string);
-        int bytes_wrote = write(argv->client, json->string, slen);              
-        if (bytes_wrote <= 0 || bytes_wrote != slen) {       
-           // Use system log?                                 
-           fprintf(stderr, "Can't write to client\n");        
-        }                                                      
+        int bytes_wrote = write(argv->client, json->string, slen);
+        if (bytes_wrote <= 0 || bytes_wrote != slen) {
+           // Use system log?
+           fprintf(stderr, "Can't write to client\n");
+        }
         cJSON_Delete(json);
 
         cnt++;
-        printf("%%cpu: %.02f\n", pct);                                                                                   
-    }                                                                                                                    
+        printf("%%cpu: %.02f\n", pct);
+    }
 
     free(argv);
-}                                                                                                                        
+    return 0;
+}
 
 int main(int argc, char **argv)
 {
