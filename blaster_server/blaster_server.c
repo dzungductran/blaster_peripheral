@@ -59,6 +59,8 @@ const char *KEY_CACHE_SIZE     = "cache_size";
 const char *KEY_MODEL_NAME     = "model_name";
 const char *KEY_VENDOR_ID      = "vendor_id";
 const char *KEY_PROCESS_STATE  = "process_state";
+const char *KEY_QUICK_STATUS   = "quick_status";
+
 
 /* Protocol between client and server
  *     byte 1 = command 
@@ -144,11 +146,37 @@ void returnUnknown(int client, char *format, char *str) {
 struct argvCpuInfo {
     int client;
     int identifier;
+    int quick;
     pid_t pid;
 }; 
 
+void returnCpuUsage(int client, int identifier, int quick, double pct, char *state) 
+{
+    // build status data
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, KEY_COMMAND_TYPE, SERIAL_CMD_STATUS);
+    cJSON_AddNumberToObject(json, KEY_IDENTIFIER, identifier);
+    cJSON_AddStringToObject(json, KEY_PROCESS_STATE, state);
+    cJSON_AddNumberToObject(json, KEY_PERCENT, pct);
+    cJSON_AddNumberToObject(json, KEY_QUICK_STATUS, quick);
+
+    char *out = cJSON_Print(json, 0);
+    int slen = strlen(out);
+    int bytes_wrote = write(client, out, slen);
+    if (bytes_wrote <= 0 || bytes_wrote != slen) {
+        // Use system log?
+        fprintf(stderr, "Can't write to client\n");
+    }
+#ifdef DEBUG
+    printf("%s\n", out);
+#endif
+    free(out);
+    cJSON_Delete(json);
+    printf("%%cpu: %.02f\n", pct);
+}
+
 // Function to return cpu usage and other info about process
-void* returnCpuUsage(void *arg)
+void* getCpuUsage(void *arg)
 {
     struct pstat prev, curr;
     double pct = 0;
@@ -160,33 +188,17 @@ void* returnCpuUsage(void *arg)
     while( cnt < 1 )
     {
         if( get_usage(argv->pid, &prev) != -1 ) {
-            sleep( 2 );
+            if (argv->quick == 0) { // if quick status then don't calculate cpu usage
+                sleep( 2 );
 
-            if ( get_usage(argv->pid, &curr) != -1 ) {
-                calc_cpu_usage_pct2(&curr, &prev, &pct);
-                state[0] = curr.state;
+                if ( get_usage(argv->pid, &curr) != -1 ) {
+                   calc_cpu_usage_pct2(&curr, &prev, &pct);
+                   state[0] = curr.state;
+                }
             }
         }
 
-        // build status data
-        cJSON *json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(json, KEY_COMMAND_TYPE, SERIAL_CMD_STATUS);
-        cJSON_AddNumberToObject(json, KEY_IDENTIFIER, argv->identifier);
-        cJSON_AddStringToObject(json, KEY_PROCESS_STATE, state);
-        cJSON_AddNumberToObject(json, KEY_PERCENT, pct);
-
-        char *out = cJSON_Print(json, 0);
-        int slen = strlen(out);
-        int bytes_wrote = write(argv->client, out, slen);
-        if (bytes_wrote <= 0 || bytes_wrote != slen) {
-           // Use system log?
-           fprintf(stderr, "Can't write to client\n");
-        }
-#ifdef DEBUG
-        printf("%s\n", out);
-#endif
-        free(out);
-        cJSON_Delete(json);
+        returnCpuUsage(argv->client, argv->identifier, argv->quick, pct, state);
 
         cnt++;
         printf("%%cpu: %.02f\n", pct);
@@ -305,6 +317,7 @@ int main(int argc, char **argv)
                         // get status from /proc/stat
                         char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
                         int id = cJSON_GetObjectItem(json, KEY_IDENTIFIER)->valueint;
+                        int quick = cJSON_GetObjectItem(json, KEY_QUICK_STATUS)->valueint;
 #ifdef DEBUG
                         printf("command %s id %d\n", cmdStr, id);
 #endif
@@ -318,11 +331,17 @@ int main(int argc, char **argv)
                             arg->client = client;
                             arg->pid = pid;
                             arg->identifier = id;
-                            if (pthread_create(&tid, NULL, returnCpuUsage, arg) != 0) {
+                            arg->quick = quick;
+                            if (pthread_create(&tid, NULL, getCpuUsage, arg) != 0) {
                                 returnUnknown(client, "Can't stat %", cmdStr);
                             }
                         } else {
-                            returnUnknown(client, "Can't stat %s", cmdStr);
+                            // can't find pid and we looking for quick status so return not_running
+                            if (quick) {
+                                 returnCpuUsage(client, id, quick, 0, "X");
+                            } else {
+                                 returnUnknown(client, "Can't stat %s", cmdStr);
+                            }
                         }
                         break;
                     }
