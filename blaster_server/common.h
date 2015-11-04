@@ -84,6 +84,9 @@ extern int shellcmd(char *cmd, char *type);
 extern int filecopy(char *src, char *target);
 extern pid_t findCommand(const char *cmd);
 extern int get_usage(const pid_t pid, struct pstat* result);
+extern void calc_cpu_usage_pct2(const struct pstat* cur_usage,                                                                   
+                        const struct pstat* last_usage,                                                                  
+                        double* usage);
 extern void calc_cpu_usage_pct(const struct pstat* cur_usage,                                                                   
                         const struct pstat* last_usage,                                                                  
                         double* usage);

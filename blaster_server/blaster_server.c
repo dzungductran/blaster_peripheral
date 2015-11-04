@@ -163,7 +163,7 @@ void* returnCpuUsage(void *arg)
             sleep( 2 );
 
             if ( get_usage(argv->pid, &curr) != -1 ) {
-                calc_cpu_usage_pct(&curr, &prev, &pct);
+                calc_cpu_usage_pct2(&curr, &prev, &pct);
                 state[0] = curr.state;
             }
         }
@@ -175,12 +175,17 @@ void* returnCpuUsage(void *arg)
         cJSON_AddStringToObject(json, KEY_PROCESS_STATE, state);
         cJSON_AddNumberToObject(json, KEY_PERCENT, pct);
 
-        int slen = strlen(json->string);
-        int bytes_wrote = write(argv->client, json->string, slen);
+        char *out = cJSON_Print(json, 0);
+        int slen = strlen(out);
+        int bytes_wrote = write(argv->client, out, slen);
         if (bytes_wrote <= 0 || bytes_wrote != slen) {
            // Use system log?
            fprintf(stderr, "Can't write to client\n");
         }
+#ifdef DEBUG
+        printf("%s\n", out);
+#endif
+        free(out);
         cJSON_Delete(json);
 
         cnt++;
@@ -300,9 +305,13 @@ int main(int argc, char **argv)
                         // get status from /proc/stat
                         char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
                         int id = cJSON_GetObjectItem(json, KEY_IDENTIFIER)->valueint;
+#ifdef DEBUG
+                        printf("command %s id %d\n", cmdStr, id);
+#endif
 			strcpy(buf, cmdStr);
                         strip_argv(buf); 
                         pid = findCommand(buf);
+                        printf("pid %d\n", pid);
                         if (pid != -1) {
                             pthread_t tid;
                             struct argvCpuInfo *arg = malloc(sizeof(struct argvCpuInfo));
