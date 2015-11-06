@@ -1,0 +1,10 @@
+[Unit]
+Description=3D accel, gyro and magn
+
+[Service]
+Type=simple
+ExecStart=/home/root/LSM9DS0/9DOFd
+Environment="HOME=/home/root"
+WorkingDirectory=/home/root/.cache/obexd
+[Install]
+WantedBy=multi-user.target
