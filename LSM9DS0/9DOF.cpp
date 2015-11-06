@@ -41,7 +41,7 @@ int running = 1;
 void
 sig_handler(int signo)
 {
-    if (signo == SIGINT) {
+    if (signo == SIGINT || signo == SIGTERM || signo == SIGHUP) {
         printf("Closing and cleaning up\n");
         running = 0;
     }
