@@ -133,19 +133,26 @@ int main( int argc, char* argv[] )
 
   time_t     now;
   struct tm  ts;
-  char       buf[80];
+  char       filename[80];
   char	     path[256];
+  char      *home_env;
   memset(path, 0, sizeof(path));
 
   // Get current time
   time(&now);
   // Format time, "ddd yyyy-mm-dd hh:mm:ss zzz"
   ts = *localtime(&now);
-  strftime(buf, sizeof(buf), "%a_%Y-%m-%d_%H:%M:%S_%Z.csv", &ts);
-  if (argc > 1) {
+  strftime(filename, sizeof(filename), "%Y-%m-%d_%H:%M:%S.csv", &ts);
+  if (argc > 1) { 
       strcat(path, argv[1]);
+  } else {         
+      home_env = getenv("HOME");
+      if (home_env != NULL) {
+         strcat(path, home_env);
+         strcat(path, "/.cache/obexd/");
+      }             
   }
-  strcat(path, buf);
+  strcat(path, filename);
 
   // open the file
   FILE* fd2 = fopen (path, "w+");
@@ -241,6 +248,7 @@ int main( int argc, char* argv[] )
                   imu->calcMag(imu->mx),
                   imu->calcMag(imu->my),
                   imu->calcMag(imu->mz));
+    fflush(fd2);
     // Temp conversion is left as an example to the reader, as it requires a
     //  good deal of device- and system-specific calibration. The on-board
     //  temp sensor is probably best not used if local temp data is required!
