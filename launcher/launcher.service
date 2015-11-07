@@ -1,0 +1,7 @@
+[Unit]
+Description=Launcher (turn on/off relay)
+
+[Service]
+Type=forking
+ExecStart=/home/root/launcher/launcher
+Environment="HOME=/home/root"
