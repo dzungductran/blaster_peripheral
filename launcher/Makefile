@@ -24,14 +24,14 @@ LDFLAGS=-l mraa
 #------------ targets --------------------------------------------
 # describe how to create the targets - often there will be only one target
 
-all: launcher
+all: launcherd
 
-launcher: $(LAUNCHER)
+launcherd: $(LAUNCHER)
 	@echo "########################################################################################"
 	@echo "Building launcher..."
-	$(CC) $(LAUNCHER) -o launcher $(LDFLAGS)
+	$(CC) $(LAUNCHER) -o launcherd $(LDFLAGS)
 
 clean:
-	rm -f *.o launcher
+	rm -f *.o launcherd
 
 #------------ dependencies --------------------------------------------
