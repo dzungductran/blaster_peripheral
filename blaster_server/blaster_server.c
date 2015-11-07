@@ -195,6 +195,8 @@ void* getCpuUsage(void *arg)
                    calc_cpu_usage_pct2(&curr, &prev, &pct);
                    state[0] = curr.state;
                 }
+            } else {
+                state[0] = prev.state;
             }
         }
 
@@ -324,7 +326,7 @@ int main(int argc, char **argv)
 			strcpy(buf, cmdStr);
                         strip_argv(buf); 
                         pid = findCommand(buf);
-                        printf("pid %d\n", pid);
+                        printf("pid %d for command %s\n", pid, buf);
                         if (pid != -1) {
                             pthread_t tid;
                             struct argvCpuInfo *arg = malloc(sizeof(struct argvCpuInfo));
