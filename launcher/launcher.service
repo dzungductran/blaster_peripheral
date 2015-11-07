@@ -3,5 +3,5 @@ Description=Launcher (turn on/off relay)
 
 [Service]
 Type=forking
-ExecStart=/home/root/launcher/launcher
+ExecStart=/home/root/launcher/launcherd
 Environment="HOME=/home/root"
