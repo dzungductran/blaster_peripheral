@@ -138,21 +138,22 @@ int main( int argc, char* argv[] )
   char      *home_env;
   memset(path, 0, sizeof(path));
 
-  // Get current time
-  time(&now);
-  // Format time, "ddd yyyy-mm-dd hh:mm:ss zzz"
-  ts = *localtime(&now);
-  strftime(filename, sizeof(filename), "%Y-%m-%d_%H:%M:%S.csv", &ts);
   if (argc > 1) { 
       strcat(path, argv[1]);
   } else {         
+      // Get current time
+      time(&now);
+      // Format time, "ddd yyyy-mm-dd hh:mm:ss zzz"
+      ts = *localtime(&now);
+      strftime(filename, sizeof(filename), "%Y-%m-%d_%H:%M:%S.csv", &ts);
+
       home_env = getenv("HOME");
       if (home_env != NULL) {
          strcat(path, home_env);
          strcat(path, "/.cache/obexd/");
       }             
+      strcat(path, filename);
   }
-  strcat(path, filename);
 
   // open the file
   FILE* fd2 = fopen (path, "w+");
