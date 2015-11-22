@@ -22,6 +22,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #include "common.h"
+#include <time.h>
 #include "cJSON/cJSON.h"
 
 uint8_t channel = 22;
@@ -62,6 +63,8 @@ const char *KEY_VENDOR_ID      = "vendor_id";
 const char *KEY_PROCESS_STATE  = "process_state";
 const char *KEY_QUICK_STATUS   = "quick_status";
 
+// locating where the obexd file transfer put files
+static char obexd_path[128];
 
 /* Protocol between client and server
  *     byte 1 = command 
@@ -211,6 +214,38 @@ void* getCpuUsage(void *arg)
     return 0;
 }
 
+char *getFileName() {
+    static char filename[30];
+    time_t     now;
+    struct tm  ts;
+
+    // Get current time                                                            
+    time(&now);                                                                    
+    // Format time, "ddd yyyy-mm-dd hh:mm:ss zzz"                                  
+    ts = *localtime(&now);                                                         
+    strftime(filename, sizeof(filename), "%Y-%m-%d_%H:%M:%S.csv", &ts);            
+
+    return filename;
+}                                                                                 
+
+char *replaceWithFileName(char *str)
+{
+    static char buffer[256];
+    char *p, *orig = "%f";
+    char *rep;
+
+    if(!(p = strstr(str, orig)))  // Is '%f' even in 'str'?
+       return str;
+
+    rep = getFileName();  
+    strncpy(buffer, str, p-str); // Copy characters from 'str' start to 'orig' st$
+    buffer[p-str] = '\0';
+
+    sprintf(buffer+(p-str), "%s%s%s", obexd_path, rep, p+strlen(orig));
+
+    return buffer;
+}
+
 int main(int argc, char **argv)
 {
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
@@ -220,6 +255,14 @@ int main(int argc, char **argv)
     socklen_t opt = sizeof(rem_addr);
     pid_t pid;
     cJSON *json;
+    char *home_env;
+    memset(obexd_path, 0, sizeof(obexd_path));
+
+    home_env = getenv("HOME");
+    if (home_env != NULL) {
+       strcat(obexd_path, home_env);
+       strcat(obexd_path, "/.cache/obexd/");
+    }
 
     // allocate socket
     sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
@@ -272,7 +315,7 @@ int main(int argc, char **argv)
                     case SERIAL_CMD_START:
                     { 
                         char *oType = cJSON_GetObjectItem(json, KEY_CAPTURE_OUTPUT)->valuestring;
-                        char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
+                        char *cmdStr = replaceWithFileName(cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring);
     		        status = shellcmd(cmdStr, oType);  // read error from stderr
 #ifdef DEBUG
                         printf("status = %d for command %s type %s\n", status, cmdStr, oType);
