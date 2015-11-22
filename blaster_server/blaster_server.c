@@ -39,9 +39,10 @@ uint8_t channel = 22;
 #define SERIAL_CMD_START       1
 #define SERIAL_CMD_STATUS      2
 #define SERIAL_CMD_ERROR       3
-#define SERIAL_CMD_KILL        4 
-#define SERIAL_CMD_STOP        5
+#define SERIAL_CMD_KILL        9       // equals to SIGKILL
+#define SERIAL_CMD_STOP        17      // equals to SIGSTOP
 #define SERIAL_CMD_CPU_INFO    6
+#define SERIAL_CMD_TERM        15      // equals to SIGTERM
 #define SERIAL_CMD_CLOSE       0xFF 
 
 const char *KEY_COMMAND_TYPE   = "command_type";
@@ -296,6 +297,22 @@ int main(int argc, char **argv)
                         } else {
                             returnUnknown(client, "Can't find %s", cmdStr);
              		}
+                        break;
+                    }
+                    case SERIAL_CMD_TERM:
+                    {
+                        char *cmdStr = cJSON_GetObjectItem(json, KEY_COMMAND)->valuestring;
+			strcpy(buf, cmdStr);
+                        strip_argv(buf); 
+                        pid = findCommand(buf);
+                        if (pid != -1) {
+                            status = kill(pid, SIGTERM);
+                            if (status == -1) {
+                                returnOutput(client);
+                            }
+                        } else {
+                            returnUnknown(client, "Can't find %s", cmdStr);
+                        }
                         break;
                     }
                     case SERIAL_CMD_STOP:
