@@ -82,7 +82,9 @@ void strip_argv(char *buffer) {
         if (slen > 0) {                                               
             buffer[slen] = '\0';                                      
         }                                                             
+#ifdef DEBUG
         printf("buf = %s\n", buffer);                                 
+#endif
     }                                                             
 } 
 
@@ -223,7 +225,7 @@ char *getFileName() {
     time(&now);                                                                    
     // Format time, "ddd yyyy-mm-dd hh:mm:ss zzz"                                  
     ts = *localtime(&now);                                                         
-    strftime(filename, sizeof(filename), "%Y-%m-%d_%H:%M:%S.csv", &ts);            
+    strftime(filename, sizeof(filename), "%Y-%m-%d_%H:%M:%S", &ts);            
 
     return filename;
 }                                                                                 
@@ -248,6 +250,7 @@ char *replaceWithFileName(char *str)
 
 // Get the OBEX path where files will be stored
 void getObexPath() {
+    int len;
     char *home_env;
     memset(obexd_path, 0, sizeof(obexd_path));
 
@@ -263,6 +266,15 @@ void getObexPath() {
           strcpy(obexd_path, "/home/root/.cache/obexd/");
        }
     }
+
+    len = strlen(obexd_path);
+    if (*(obexd_path+len-1) != '/') {
+       *(obexd_path+len) = '/';
+       *(obexd_path+len+1) = '\0';
+    }
+#ifdef DEBUG
+    printf("Done found %s\n", obexd_path);
+#endif
 }
 
 int main(int argc, char **argv)
@@ -275,6 +287,7 @@ int main(int argc, char **argv)
     pid_t pid;
     cJSON *json;
 
+    
     // get OBEX path
     if (argc > 1) {
        strcpy(obexd_path, argv[1]);
