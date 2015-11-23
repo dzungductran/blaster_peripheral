@@ -246,6 +246,25 @@ char *replaceWithFileName(char *str)
     return buffer;
 }
 
+// Get the OBEX path where files will be stored
+void getObexPath() {
+    char *home_env;
+    memset(obexd_path, 0, sizeof(obexd_path));
+
+    home_env = getenv("OBEX");
+    if (home_env != NULL) {
+       strcpy(obexd_path, home_env);
+    } else {
+       home_env = getenv("HOME");
+       if (home_env != NULL) {
+          strcpy(obexd_path, home_env);
+          strcat(obexd_path, "/.cache/obexd/");
+       } else {
+          strcpy(obexd_path, "/home/root/.cache/obexd/");
+       }
+    }
+}
+
 int main(int argc, char **argv)
 {
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
@@ -255,13 +274,12 @@ int main(int argc, char **argv)
     socklen_t opt = sizeof(rem_addr);
     pid_t pid;
     cJSON *json;
-    char *home_env;
-    memset(obexd_path, 0, sizeof(obexd_path));
 
-    home_env = getenv("HOME");
-    if (home_env != NULL) {
-       strcat(obexd_path, home_env);
-       strcat(obexd_path, "/.cache/obexd/");
+    // get OBEX path
+    if (argc > 1) {
+       strcpy(obexd_path, argv[1]);
+    } else {
+       getObexPath();
     }
 
     // allocate socket
