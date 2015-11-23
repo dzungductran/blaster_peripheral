@@ -147,11 +147,18 @@ int main( int argc, char* argv[] )
       ts = *localtime(&now);
       strftime(filename, sizeof(filename), "%Y-%m-%d_%H:%M:%S.csv", &ts);
 
-      home_env = getenv("HOME");
+      home_env = getenv("OBEX");
       if (home_env != NULL) {
-         strcat(path, home_env);
-         strcat(path, "/.cache/obexd/");
-      }             
+         strcpy(path, home_env);
+      } else {
+         home_env = getenv("HOME");
+         if (home_env != NULL) {
+            strcpy(path, home_env);
+            strcat(path, "/.cache/obexd/");
+         } else {
+            strcpy(path, "/home/root/.cache/obexd/");
+         }
+      }
       strcat(path, filename);
   }
 
