@@ -136,6 +136,9 @@ int main( int argc, char* argv[] )
   char       filename[80];
   char	     path[256];
   char      *home_env;
+  int        len;
+
+  // clear out path
   memset(path, 0, sizeof(path));
 
   if (argc > 1) { 
@@ -159,6 +162,13 @@ int main( int argc, char* argv[] )
             strcpy(path, "/home/root/.cache/obexd/");
          }
       }
+
+      len = strlen(path);
+      if (*(path+len-1) != '/') {
+         *(path+len) = '/';
+         *(path+len+1) = '\0';
+      }
+
       strcat(path, filename);
   }
 
